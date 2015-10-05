@@ -25,9 +25,8 @@ voronoipolygons <- function(x) {
 }                
 
 ##### ITERACIONES CON LOS CENTROS EXISTENTES#####
-
 # las bases de entrada son "oferta" y "demanda".
-# names(demanda)<-c("x","y","pondera")     ## "x" e "y" son coordenadas planas de los domicilios y "pondera" es una variable dicotómica de ponderación de los casos
+# names(demanda)<-c("x","y","pondera","id_D")     ## "x" e "y" son coordenadas planas de los domicilios, "pondera" es una variable dicotómica de ponderación de los casos, "id_D" es un factor que identifica a cada caso
 # names(oferta)<-c("x","y","id","cupos")   ## "x" e "y" son coordenadas planas de los centros existente, "id" es un identificador único del centro y "cupos" es la capacidad nominal del centro
 
 ##### PARAMETROS DE LAS ITERACIONES
@@ -38,15 +37,16 @@ n<-3 # iteraciones totales
 m<-3 # iteración a partir de la que se usa el segundo umbral de distancia
 a<-1000 #distancia umbral para las primeras iteraciones (n > m)
 b<-5000 #distancia umbral para las iteraciones a partir de m (n <= m)
+
 # ITERACIONES
 while (n>=j){
+  demanda_orig<-demanda
   ## CREACION DEL OBJETO ESPACIAL CON LOS NIÑOS
   demanda_s<-SpatialPoints(demanda[,1:2],proj4string=CRS("+init=epsg:32721"))
   ## ENLACE ESPACIAL DE NIÑOS CON LOS VORONOIS INICIALES Y CÁLCULO DE NIÑOS CUBIERTOS POR LA OFERTA ACTUAL
   oferta_s<-SpatialPoints(oferta[,1:2],CRS("+init=epsg:32721"))
   VP_centros1<-voronoipolygons(oferta_s)
   #ENLACE ESPACIAL
-  #oferta$poligono<-over(VP_centros1,oferta_s,returnList=FALSE) # el resultado es igual al row.names de centros! lo dejo para tener la misma variable para el merge
   ab<-as.data.frame(over(demanda_s,VP_centros1))
   names(ab)<-"poligono"
   demanda<-cbind(demanda,ab)
@@ -66,15 +66,14 @@ while (n>=j){
   demanda_conteo<-as.data.frame(c(demanda_id))
   names(demanda_conteo)<-c("demanda_ex")
   demanda_conteo$id<-row.names(demanda_conteo)
-  demanda<-merge(demanda, demanda_conteo, 
-                 by.x="id", by.y="id", all.x=TRUE, all.y=TRUE) # carga del dato de cantidad de niños por centro en la base de niños
+  demanda<-merge(demanda, demanda_conteo,by="id", all.x=TRUE) # carga del dato de cantidad de niños por centro en la base de niños
   demanda<-demanda[order(demanda$id, demanda$dist_exist),] # se ordena la base por centro de pertenencia y por distancia al mismo
   remove(demanda_conteo)
   # CÁLCULO DE NIÑOS CUBIERTOS  
   lista_id = as.data.frame(sort(unique(demanda$id))) # lista de los centros que tienen niños asignados
   names(lista_id)<-c("id")
   lista_id$nid<-row.names(lista_id)
-  demanda<-merge(demanda,lista_id,by="id")
+  demanda<-merge(demanda,lista_id,by="id",all.x=TRUE)
   lista_1 = vector("list", nrow(lista_id))
   for (i in 1:nrow(lista_id)) {
     lista_1[[i]]<-rank(subset(demanda,demanda$nid==i)[,"dist_exist"],ties.method="random")
@@ -82,30 +81,32 @@ while (n>=j){
   demanda$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
   remove(lista_1)
   demanda$a_reasig1<-ifelse(demanda$en1000_exist==1,
-                            ifelse(demanda$orden_dist<=demanda$cupos,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+                           ifelse(demanda$orden_dist<=demanda$cupos,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
   ## CÁLCULO DE CUPOS UTILIZADOS 
-  cubiertos<-subset(demanda,demanda$a_reasig1==0, c(x.x,y.x,pondera,id),drop=TRUE)
+  cubiertos<-subset(demanda,demanda$a_reasig1==0, c(x.x,y.x,pondera,id,id_D),drop=TRUE)
   cubiertos<-droplevels(cubiertos)
   cubiertos$ronda<-as.factor(j) # indica la ronda en la que se asigno al centro correspondiente
   cubiertos$uno<-1
   oferta1<-as.data.frame(tapply(X=cubiertos$uno,INDEX=list(cubiertos$id), FUN=sum))
-  names(oferta1)<-"tomados"
-  oferta1$id<-row.names(oferta1)
+  oferta1$tomados<-as.integer(oferta1[,1])
+  oferta1$id<-as.factor(row.names(oferta1))
+  oferta1<-subset(oferta1,select=c("id","tomados"))
   cupos_oferta[[j]]<-oferta1 #CUPOS DE CADA CENTRO CUBIERTOS EN CADA PASO
   oferta1<-merge(oferta,oferta1,by="id",all.x=TRUE)
   oferta1$tomados<-ifelse(is.na(oferta1$tomados),0,oferta1$tomados)
   oferta1$cupos<-oferta1$cupos-oferta1$tomados #esto corresponde al saldo no cubierto
-  oferta1<-subset(oferta1,oferta1$cupos>0,drop=TRUE) # se continua con los centros que aún tienen saldo
-  oferta<-subset(oferta1,select=c(x,y,id,cupos),drop=TRUE) 
+  oferta<-subset(oferta1,oferta1$cupos>0,select=c(x,y,id,cupos),drop=TRUE) # se continua con los centros que aún tienen saldo
   oferta<-droplevels(oferta)
   remove(oferta1)
   ## NIÑOS NO CUBIERTOS
-  demanda$x<-demanda$x.x
-  demanda$y<-demanda$y.x
-  demanda<-subset(demanda,demanda$a_reasig1==1,select=c(x,y,pondera),drop=TRUE)
+  demanda<-subset(demanda,select=c("id_D","a_reasig1"))
+  demanda<-merge(demanda_orig,demanda,by="id_D",all.x=TRUE)
+  demanda$a_reasig1<-ifelse(is.na(demanda$a_reasig1),1,demanda$a_reasig1)
+  demanda<-subset(demanda,demanda$a_reasig1==1,select=c(x,y,pondera,id_D))
+  demanda<-droplevels(demanda)
   ## LISTA DE NIÑOS YA CUBIERTOS, UN OBJETO DE LA LISTA POR CADA PASO 
   asignados[[j]]<-cubiertos
-  remove(cubiertos)
+  remove(cubiertos,demanda_orig)
   j<-j+1 #cuenta la iteración
 }
 cupos_perdidos<-oferta
@@ -146,36 +147,36 @@ demanda<-no_cubiertos #niños no cubiertos en la asignación a los centros exist
 clusterizados<-as.list(NA) #lista para extraer los niños que se van asignando en cada corrida
 # ITERACIONES
 while(j<=m){
-  distancia<-ifelse(j<=6,d1,ifelse(j<=l,d2,1/0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
-  tam<-ifelse(j<=5,g1,ifelse(j<=o,g2,1/0)) #el cupo por grupo a crear es 100 en las primeras 5 iteraciones, 50 para la 6 y 7 y la 8 y 9 no tienen límite de cupo
-  k<-ifelse(is.infinite(tam),g2,ceiling(nrow(demanda)/tam))
-  demanda$cluster<-as.factor(cclust(demanda[,1:2],k)@cluster)
-  medianax<-as.data.frame(tapply(demanda$x,demanda$cluster,FUN=median)) # coordenada x del centro medio del cluster
-  names(medianax)<-c("medianax")
-  medianay<-as.data.frame(tapply(demanda$y,demanda$cluster,FUN=median)) # coordenada y del centro medio del cluster
-  names(medianay)<-c("medianay")
-  demanda<-merge(demanda,medianax,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
-  demanda<-merge(demanda,medianay,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
-  demanda$dist<-sqrt((demanda$x-demanda$medianax)^2+(demanda$y-demanda$medianay)^2) #distancia al centro mediano
-  lista_cluster<-as.data.frame(sort(unique(demanda$cluster))) # lista de los centros que tienen niños asignados
-  names(lista_cluster)<-c("cluster")
-  lista_cluster$cluster<-row.names(lista_cluster)
-  demanda<-merge(demanda,lista_cluster,by="cluster")
-  lista_1<-vector("list", nrow(lista_cluster))             
-  for (i in 1:nrow(lista_cluster)) {
-    lista_1[[i]]<-rank(subset(demanda,demanda$cluster==i)[,"dist"],ties.method="random")
-  } # crea una lista de rangos (por distancia) para cada niño dentro del cluster de pertenencia 
-  demanda$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
-  remove(i,lista_1)
-  demanda$a_reasig<-ifelse(demanda$dist<=distancia,
-                           ifelse(demanda$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
-  clusters<-subset(demanda,demanda$a_reasig==0)
-  droplevels(clusters$cluster) 
-  clusters$ronda<-as.factor(j)
-  clusterizados[[j]]<-clusters
-  remove(clusters)            
-  demanda<-subset(demanda,demanda$a_reasig==1,select=c(x,y,pondera))
-  j<-j+1
+ distancia<-ifelse(j<=6,d1,ifelse(j<=l,d2,1/0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
+ tam<-ifelse(j<=5,g1,ifelse(j<=o,g2,1/0)) #el cupo por grupo a crear es 100 en las primeras 5 iteraciones, 50 para la 6 y 7 y la 8 y 9 no tienen límite de cupo
+ k<-ifelse(is.infinite(tam),g2,ceiling(nrow(demanda)/tam))
+ demanda$cluster<-as.factor(cclust(demanda[,1:2],k)@cluster)
+ medianax<-as.data.frame(tapply(demanda$x,demanda$cluster,FUN=median)) # coordenada x del centro medio del cluster
+ names(medianax)<-c("medianax")
+ medianay<-as.data.frame(tapply(demanda$y,demanda$cluster,FUN=median)) # coordenada y del centro medio del cluster
+ names(medianay)<-c("medianay")
+ demanda<-merge(demanda,medianax,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
+ demanda<-merge(demanda,medianay,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
+ demanda$dist<-sqrt((demanda$x-demanda$medianax)^2+(demanda$y-demanda$medianay)^2) #distancia al centro mediano
+ lista_cluster<-as.data.frame(sort(unique(demanda$cluster))) # lista de los centros que tienen niños asignados
+ names(lista_cluster)<-c("cluster")
+ lista_cluster$cluster<-row.names(lista_cluster)
+ demanda<-merge(demanda,lista_cluster,by="cluster")
+ lista_1<-vector("list", nrow(lista_cluster))             
+ for (i in 1:nrow(lista_cluster)) {
+     lista_1[[i]]<-rank(subset(demanda,demanda$cluster==i)[,"dist"],ties.method="random")
+ } # crea una lista de rangos (por distancia) para cada niño dentro del cluster de pertenencia 
+ demanda$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
+ remove(i,lista_1)
+ demanda$a_reasig<-ifelse(demanda$dist<=distancia,
+                        ifelse(demanda$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+ clusters<-subset(demanda,demanda$a_reasig==0)
+ droplevels(clusters$cluster) 
+ clusters$ronda<-as.factor(j)
+ clusterizados[[j]]<-clusters
+ remove(clusters)            
+ demanda<-subset(demanda,demanda$a_reasig==1,select=c(x,y,pondera))
+ j<-j+1
 }
 #Desenlistar los clusters
 asignados_clusters<-as.data.frame(NULL)
