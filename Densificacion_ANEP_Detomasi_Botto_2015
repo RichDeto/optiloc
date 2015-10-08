@@ -175,7 +175,7 @@ while(j<=m){
  clusters$ronda<-as.factor(j)
  clusterizados[[j]]<-clusters
  remove(clusters)            
- demanda<-subset(demanda,demanda$a_reasig==1,select=c(x,y,pondera))
+ demanda<-subset(demanda,demanda$a_reasig==1,select=c(x,y,pondera,id_D))
  j<-j+1
 }
 #Desenlistar los clusters
