@@ -33,8 +33,8 @@ voronoipolygons <- function(x) {
 cupos_oferta<-as.list(NA)
 asignados<-as.list(NA)
 j<-1 # iteración actual
-n<-3 # iteraciones totales
-m<-3 # iteración a partir de la que se usa el segundo umbral de distancia
+n<-5 # iteraciones totales
+m<-5 # iteración a partir de la que se usa el segundo umbral de distancia
 a<-1000 #distancia umbral para las primeras iteraciones (n > m)
 b<-5000 #distancia umbral para las iteraciones a partir de m (n <= m)
 
