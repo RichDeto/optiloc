@@ -3,6 +3,7 @@ require(rgdal)
 require(sp)
 require(deldir)
 require(flexclust)
+require(plyr)
 
 ##### FORMULA PARA VORONOIS ####
 # Fórmula modificada de "http://carsonfarmer.com/2009/09/voronoi-polygons-with-r/"
@@ -94,11 +95,8 @@ while (n>=j){
   cubiertos<-subset(demanda,demanda$a_reasig1==0, c(x.x,y.x,pondera,id,id_D),drop=TRUE)
   cubiertos<-droplevels(cubiertos)
   cubiertos$ronda<-as.factor(j) # indica la ronda en la que se asigno al centro correspondiente
-  cubiertos$uno<-1
-  oferta1<-as.data.frame(tapply(X=cubiertos$uno,INDEX=list(cubiertos$id), FUN=sum))
-  oferta1$tomados<-as.integer(oferta1[,1])
-  oferta1$id<-as.factor(row.names(oferta1))
-  oferta1<-subset(oferta1,select=c("id","tomados"))
+  oferta1<-ddply(cubiertos,"id","nrow")
+  names(oferta1)<-c("id","tomados")
   cupos_oferta[[j]]<-oferta1 #CUPOS DE CADA CENTRO CUBIERTOS EN CADA PASO
   oferta1<-merge(oferta,oferta1,by="id",all.x=TRUE)
   oferta1$tomados<-ifelse(is.na(oferta1$tomados),0,oferta1$tomados)
