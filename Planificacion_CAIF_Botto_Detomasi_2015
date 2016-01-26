@@ -22,7 +22,8 @@ voronoipolygons <- function(x) {
     polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
   }
   SP <- SpatialPolygons(polys,proj4string=CRS("+init=epsg:32721"))
-}                                                          
+}
+
 ##### ITERACIONES CON LOS CENTROS EXISTENTES#####
 # Datos de entrada:
 ## "ninos1" DataFrame de 3 variables conteniendo los puntos de demanda de servicio: "x" e "y" son coordenadas planas y "afam" es una variable de priorización dicotómica
@@ -36,6 +37,7 @@ n<-3 # iteraciones totales
 m<-3 # iteración a partir de la que se usa el segundo umbral de distancia
 a<-1000 #distancia umbral para las primeras iteraciones (n > m)
 b<-5000 #distancia umbral para las iteraciones a partir de m (n <= m)
+
 # ITERACIONES
 while (n>=j){
   ## CREACION DEL OBJETO ESPACIAL CON LOS NIÑOS
@@ -109,14 +111,14 @@ while (n>=j){
 cupos_perdidos<-centros
 no_cubiertos<-ninos1
 
-###Desenlistado de los menores cubiertos
+# Desenlistado de los menores cubiertos
 asignados_existentes<-as.data.frame(NULL)
 for (i in 1:length(asignados)) {
   asignados_existentes<-rbind(asignados_existentes,as.data.frame(asignados[[i]]))
 }
 asignados_existentes<-subset(asignados_existentes,select=c(x.x,y.x,afam,sipi,ronda))
 
-###Desenlistado de los Centros
+# Desenlistado de los Centros
 cupos_cubiertos1<-as.data.frame(NULL)
 for (i in 1:length(cupos_centros)) {
   cupos_cubiertos1<-rbind(cupos_cubiertos1,as.data.frame(cupos_centros[[i]]))
@@ -125,11 +127,12 @@ cupos_cubiertos<-as.data.frame(tapply(X=cupos_cubiertos1$cupos,INDEX=list(cupos_
 names(cupos_cubiertos)<-"cupos"
 cupos_cubiertos$sipi<-row.names(cupos_cubiertos)
 
-#limpiar el ambiente
+# Limpiar el ambiente
 remove(i,j,n,m,a,b,d,lista_sipi,centros,centros_s,VP_centros1,
        ninos1_s,ninos_sipi,ninos1,asignados,cupos_centros,cupos_cubiertos1)
 
 ##### GENERACIÓN DE LOS NUEVOS CENTROS #####
+
 #parámetros de la iteración
 j<-1 #número de iteración
 g1<-100 #tamaño de los grupos a crear en primera instancia
@@ -142,6 +145,7 @@ o<-7 #umbral (en interaciones) para el cambio de tamaño de grupos
 ninos<-no_cubiertos #niños no cubiertos en la asignación a los centros existentes
 # ninos$cluster<-as.factor(1) #crea una variable para la identidad del cluster
 clusterizados<-as.list(NA) #lista para extraer los niños que se van asignando en cada corrida
+
 # ITERACIONES
 while(j<=m){
  distancia<-ifelse(j<=6,d1,ifelse(j<=l,d2,1/0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
@@ -166,7 +170,7 @@ while(j<=m){
  ninos$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
  remove(i,lista_1)
  ninos$a_reasig<-ifelse(ninos$dist<=distancia,
-                        ifelse(ninos$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+                        ifelse(ninos$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupos disponibles debe ser reasignado en otro paso
  clusters<-subset(ninos,ninos$a_reasig==0)
  droplevels(clusters$cluster) 
  clusters$ronda<-as.factor(j)
@@ -175,11 +179,13 @@ while(j<=m){
  ninos<-subset(ninos,ninos$a_reasig==1,select=c(x,y,afam))
  j<-j+1
 }
-#Desenlistar los clusters
+
+# Desenlistar los clusters
 asignados_clusters<-as.data.frame(NULL)
 for (i in 1:length(clusterizados)) {
   asignados_clusters<-rbind(asignados_clusters,as.data.frame(clusterizados[[i]]))
 }
 asignados_clusters<-subset(asignados_clusters,select=c(x,y,afam,medianax,medianay,dist,ronda))
-#limpiar el ambiente
+
+# Limpiar el ambiente
 remove(j,g1,g2,d1,d2,medianax,medianay,lista_cluster)
