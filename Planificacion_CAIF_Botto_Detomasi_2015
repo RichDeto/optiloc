@@ -139,11 +139,12 @@ d2<-5000 #segundo umbral de distancia
 m<-9 #Número total de iteraciones
 l<-8 #umbral (en interaciones) para el cambio de distancia
 o<-7 #umbral (en interaciones) para el cambio de tamaño de grupos
+a <- 1 #corta la iteración si en una ronda no se asigna ningún hogar
 ninos<-no_cubiertos #niños no cubiertos en la asignación a los centros existentes
 # ninos$cluster<-as.factor(1) #crea una variable para la identidad del cluster
 clusterizados<-as.list(NA) #lista para extraer los niños que se van asignando en cada corrida
 # ITERACIONES
-while(j<=m){
+while(j<=m & a > 0){
  distancia<-ifelse(j<=6,d1,ifelse(j<=l,d2,1/0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
  tam<-ifelse(j<=5,g1,ifelse(j<=o,g2,1/0)) #el cupo por grupo a crear es 100 en las primeras 5 iteraciones, 50 para la 6 y 7 y la 8 y 9 no tienen límite de cupo
  k<-ifelse(is.infinite(tam),g2,ceiling(nrow(ninos)/tam))
@@ -179,9 +180,10 @@ while(j<=m){
                         ifelse(ninos$dist <= distancia,
                                 ifelse(ninos$orden_dist <= tam,0,1),1),1) # aquellos cuyo rango es mayor que la cantidad de cupos disponibles o se encuentran debe ser reasignado en otro paso
  clusters<-subset(ninos,ninos$a_reasig==0)
- droplevels(clusters$cluster) 
+ levels(clusters$cluster) <- droplevels(clusters$cluster) 
  clusters$ronda<-as.factor(j)
  clusterizados[[j]]<-clusters
+ a <- nrow(clusters)
  remove(clusters)            
  ninos<-subset(ninos,ninos$a_reasig==1,select=c(x,y,afam))
  j<-j+1
