@@ -176,9 +176,10 @@ while(j<=m & a > 0){
  max_n_cl$cluster <- as.factor(row.names(max_n_cl))
  names(max_n_cl) <- c("max_n_cl","cluster")
  ninos <- merge(ninos,max_n_cl,by = "cluster" )
- ninos$a_reasig <- ifelse(ninos$max_n_cl >= tam,
+ ninos$a_reasig <- ifelse( tam != 1 / 0,
+                    ifelse(ninos$max_n_cl >= tam,
                         ifelse(ninos$dist <= distancia,
-                                ifelse(ninos$orden_dist <= tam,0,1),1),1) # aquellos cuyo rango es mayor que la cantidad de cupos disponibles o se encuentran debe ser reasignado en otro paso
+                                ifelse(ninos$orden_dist <= tam,0,1),1),1),0) 
  clusters<-subset(ninos,ninos$a_reasig==0)
  levels(clusters$cluster) <- droplevels(clusters$cluster) 
  clusters$ronda<-as.factor(j)
