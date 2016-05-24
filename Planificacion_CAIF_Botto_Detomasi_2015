@@ -155,6 +155,7 @@ while(j<=m){
  ninos<-merge(ninos,medianax,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
  ninos<-merge(ninos,medianay,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
  ninos$dist<-sqrt((ninos$x-ninos$medianax)^2+(ninos$y-ninos$medianay)^2) #distancia al centro mediano
+ ninos <- ninos[order(ninos$cluster,ninos$dist),]
  lista_cluster<-as.data.frame(sort(unique(ninos$cluster))) # lista de los centros que tienen niños asignados
  names(lista_cluster)<-c("cluster")
  lista_cluster$cluster<-row.names(lista_cluster)
@@ -163,10 +164,20 @@ while(j<=m){
  for (i in 1:nrow(lista_cluster)) {
      lista_1[[i]]<-rank(subset(ninos,ninos$cluster==i)[,"dist"],ties.method="random")
  } # crea una lista de rangos (por distancia) para cada niño dentro del cluster de pertenencia 
- ninos$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
+ orden_dist <- as.data.frame(NULL)
+ for (i in 1:length(lista_1)) {
+         orden_dist <- rbind(orden_dist,as.data.frame(lista_1[[i]]))
+ }
+ colnames(orden_dist) <- "orden_dist"
+ ninos <- cbind(ninos[order(ninos$cluster,ninos$dist),],orden_dist) # asigna el rango a la base de niños
  remove(i,lista_1)
- ninos$a_reasig<-ifelse(ninos$dist<=distancia,
-                        ifelse(ninos$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+ max_n_cl <- as.data.frame(tapply(ninos$orden_dist, ninos$cluster ,max))
+ max_n_cl$cluster <- as.factor(row.names(max_n_cl))
+ names(max_n_cl) <- c("max_n_cl","cluster")
+ ninos <- merge(ninos,max_n_cl,by = "cluster" )
+ ninos$a_reasig <- ifelse(ninos$max_n_cl >= tam,
+                        ifelse(ninos$dist <= distancia,
+                                ifelse(ninos$orden_dist <= tam,0,1),1),1) # aquellos cuyo rango es mayor que la cantidad de cupos disponibles o se encuentran debe ser reasignado en otro paso
  clusters<-subset(ninos,ninos$a_reasig==0)
  droplevels(clusters$cluster) 
  clusters$ronda<-as.factor(j)
@@ -182,4 +193,4 @@ for (i in 1:length(clusterizados)) {
 }
 asignados_clusters<-subset(asignados_clusters,select=c(x,y,afam,medianax,medianay,dist,ronda))
 #limpiar el ambiente
-remove(j,g1,g2,d1,d2,medianax,medianay,lista_cluster)
+remove(j,g1,g2,d1,d2,medianax,medianay,lista_cluster,max_n_cl)
