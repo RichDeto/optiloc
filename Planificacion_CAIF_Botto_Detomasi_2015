@@ -172,14 +172,14 @@ while(j<=m & a > 0){
  colnames(orden_dist) <- "orden_dist"
  ninos <- cbind(ninos[order(ninos$cluster,ninos$dist),],orden_dist) # asigna el rango a la base de niños
  remove(i,lista_1)
- max_n_cl <- as.data.frame(tapply(ninos$orden_dist, ninos$cluster ,max))
+max_n_cl <- as.data.frame(tapply(ninos$orden_dist[ninos$dist <= distancia], ninos$cluster[ninos$dist <= distancia] ,max))
  max_n_cl$cluster <- as.factor(row.names(max_n_cl))
  names(max_n_cl) <- c("max_n_cl","cluster")
+ max_n_cl$max_n_cl <- ifelse(is.na(max_n_cl$max_n_cl),1,max_n_cl$max_n_cl)
  ninos <- merge(ninos,max_n_cl,by = "cluster" )
- ninos$a_reasig <- ifelse( tam != 1 / 0,
-                    ifelse(ninos$max_n_cl >= tam,
-                        ifelse(ninos$dist <= distancia,
-                                ifelse(ninos$orden_dist <= tam,0,1),1),1),0) 
+ ninos$a_reasig <- ifelse(is.finite(tam),
+                        ifelse(ninos$max_n_cl >= tam,
+                                ifelse(ninos$orden_dist <= tam,0,1),1),0) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
  clusters<-subset(ninos,ninos$a_reasig==0)
  levels(clusters$cluster) <- droplevels(clusters$cluster) 
  clusters$ronda<-as.factor(j)
