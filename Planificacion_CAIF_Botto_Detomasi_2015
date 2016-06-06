@@ -96,7 +96,7 @@ while (n >= j){
   centros1 <- merge(centros,centros1,by = "sipi",all.x = TRUE)
   centros1$cupos <- ifelse(is.na(centros1$cupos),0,centros1$cupos)
   centros1$mat1a2 <- centros1$mat1a2 - centros1$cupos #esto corresponde al saldo no cubierto
-  centros1 <- subset(centros1,centros1$mat1a2>0,drop = TRUE) # se continua con los centros que aún tienen saldo
+  centros1 <- subset(centros1,centros1$mat1a2 > 0,drop = TRUE) # se continua con los centros que aún tienen saldo
   centros <- subset(centros1,select = c(x,y,sipi,mat1a2),drop = TRUE) 
   centros <- droplevels(centros)
   remove(centros1)
@@ -107,9 +107,9 @@ while (n >= j){
   ## LISTA DE NIÑOS YA CUBIERTOS, UN OBJETO DE LA LISTA POR CADA PASO 
   asignados[[j]] <- cubiertos
   remove(cubiertos)
-  j <- j+1 #cuenta la iteración
+  j <- j + 1 #cuenta la iteración
 }
-cupos_perdidos<-centros
+cupos_perdidos <- centros
 no_cubiertos <- ninos1
 
 # Desenlistado de los menores cubiertos
@@ -221,12 +221,6 @@ asignados_clusters_s <- SpatialPointsDataFrame(SpatialPoints(asignados_clusters[
                                               asignados_clusters, match.ID = TRUE)
 writeOGR(asignados_clusters_s, dsn = '/resultados',
       layer = 'asignados_clusters', driver = 'ESRI Shapefile', overwrite = TRUE)
-cupos_perdidos_0a2_npap <- cupos_perdidos
-no_cubiertos_0a2_npap <- no_cubiertos
-asignados_existentes_0a2_npap <- asignados_existentes
-cupos_cubiertos_0a2_npap <- cupos_cubiertos
-asignados_clusters_0a2_npap <- asignados_clusters
-centros_clusters_0a2_npap <- centros_clusters 
 save(ninos,oferta,no_cubiertos,asignados_existentes,cupos_cubiertos,asignados_clusters,centros_clusters,
      file = "/resultados/oferta_demanda.Rdata")
 rm(cupos_perdidos,no_cubiertos,asignados_existentes,cupos_cubiertos,asignados_clusters,centros_clusters)
