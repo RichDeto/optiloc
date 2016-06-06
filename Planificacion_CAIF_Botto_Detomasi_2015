@@ -1,3 +1,4 @@
+rm(list = ls())
 ##### CARGA DE LIBRERIAS #####
 require(foreach)
 require(rgdal)
@@ -13,15 +14,15 @@ voronoipolygons <- function(x) {
   if (.hasSlot(x, 'coords')) {
     crds <- x@coords  
   } else crds <- x
-  z <- deldir(crds[,1], crds[,2],rw=c(366582,858252,6127919,6671739))
+  z <- deldir(crds[,1], crds[,2],rw = c(366582,858252,6127919,6671739))
   w <- tile.list(z)
-  polys <- vector(mode='list', length=length(w))
+  polys <- vector(mode = 'list', length = length(w))
   for (i in seq(along=polys)) {
     pcrds <- cbind(w[[i]]$x, w[[i]]$y)
     pcrds <- rbind(pcrds, pcrds[1,])
-    polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
+    polys[[i]] <- Polygons(list(Polygon(pcrds)), ID = as.character(i))
   }
-  SP <- SpatialPolygons(polys,proj4string=CRS("+init=epsg:32721"))
+  SP <- SpatialPolygons(polys,proj4string = CRS("+init = epsg:32721"))
 }
 
 ##### ITERACIONES CON LOS CENTROS EXISTENTES#####
@@ -30,102 +31,102 @@ voronoipolygons <- function(x) {
 ## "centros" DataFrame de 4 variables conteniendo los puntos de oferta existentes: x" e "y" son coordenadas planas de cada servicio, "sipi" es un identificador único y "mat1a2" es la cantidad de cupos disponibles por centro
 
 # PARAMETROS DE LAS ITERACIONES
-cupos_centros<-as.list(NA)
-asignados<-as.list(NA)
-j<-1 # iteración actual
-n<-3 # iteraciones totales
-m<-3 # iteración a partir de la que se usa el segundo umbral de distancia
-a<-1000 #distancia umbral para las primeras iteraciones (n > m)
-b<-5000 #distancia umbral para las iteraciones a partir de m (n <= m)
+cupos_centros <- as.list(NA)
+asignados <- as.list(NA)
+j <- 1 # iteración actual
+n <- 3 # iteraciones totales
+m <- 3 # iteración a partir de la que se usa el segundo umbral de distancia
+a <- 1000 #distancia umbral para las primeras iteraciones (n > m)
+b <- 5000 #distancia umbral para las iteraciones a partir de m (n <= m)
 
 # ITERACIONES
-while (n>=j){
+while (n >= j){
   ## CREACION DEL OBJETO ESPACIAL CON LOS NIÑOS
-  ninos1_s<-SpatialPoints(ninos1[,1:2],proj4string=CRS("+init=epsg:32721"))
+  ninos1_s <- SpatialPoints(ninos1[,1:2],proj4string = CRS("+init = epsg:32721"))
   ## ENLACE ESPACIAL DE NIÑOS CON LOS VORONOIS INICIALES Y CÁLCULO DE NIÑOS CUBIERTOS POR LA OFERTA ACTUAL
-  centros_s<-SpatialPoints(centros[,1:2],CRS("+init=epsg:32721"))
-  VP_centros1<-voronoipolygons(centros_s)
+  centros_s <- SpatialPoints(centros[,1:2],CRS("+init = epsg:32721"))
+  VP_centros1 <- voronoipolygons(centros_s)
   #ENLACE ESPACIAL
-  centros$poligono<-over(VP_centros1,centros_s,returnList=FALSE) # el resultado es igual al row.names de centros! lo dejo para tener la misma variable para el merge
-  ab<-as.data.frame(over(ninos1_s,VP_centros1))
-  names(ab)<-"poligono"
-  ninos1<-cbind(ninos1,ab)
-  ninos1<-merge(ninos1,centros,by="poligono")
+  centros$poligono <- over(VP_centros1,centros_s,returnList = FALSE) # el resultado es igual al row.names de centros! lo dejo para tener la misma variable para el merge
+  ab <- as.data.frame(over(ninos1_s,VP_centros1))
+  names(ab) <- "poligono"
+  ninos1 <- cbind(ninos1,ab)
+  ninos1 <- merge(ninos1,centros,by = "poligono")
   remove(ab)
   # CÁLCULO DE DISTANCIAS ENTRE LOS NIÑOS Y LOS CENTROS
-  ninos1$dist_exist<-sqrt(
+  ninos1$dist_exist <- sqrt(
     ((ninos1$x.x-ninos1$x.y)^2)+
       ((ninos1$y.x-ninos1$y.y)^2))
   #DICOTÓMICA DE DISTANCIA (MENOR O IGUAL A 1000 M)
-  d<-ifelse(m>j,a,b) #criterio de distancia dependiente de la iteración
-  ninos1$en1000_exist<-ifelse(ninos1$dist_exist>=d,0,1) 
+  d <- ifelse(m > j,a,b) #criterio de distancia dependiente de la iteración
+  ninos1$en1000_exist <- ifelse(ninos1$dist_exist >= d,0,1) 
   #CONTEO DE NIÑOS POR CADA CENTRO DENTRO DEL UMBRAL DE DISTANCIA
-  ninos_sipi<-list(tapply(X=ninos1$en1000_exist, 
-                          INDEX=list(ninos1$sipi),
-                          FUN=sum)) # conteo de niños asignados a cada centro educativo
-  ninos_conteo<-as.data.frame(c(ninos_sipi))
-  names(ninos_conteo)<-c("ninos_ex")
-  ninos_conteo$sipi<-row.names(ninos_conteo)
-  ninos1<-merge(ninos1, ninos_conteo, 
-                by.x="sipi", by.y="sipi", all.x=TRUE, all.y=TRUE) # carga del dato de cantidad de niños por centro en la base de niños
-  ninos1<-ninos1[order(ninos1$sipi, ninos1$dist_exist),] # se ordena la base por centro de pertenencia y por distancia al mismo
+  ninos_sipi <- list(tapply(X = ninos1$en1000_exist, 
+                          INDEX = list(ninos1$sipi),
+                          FUN = sum)) # conteo de niños asignados a cada centro educativo
+  ninos_conteo <- as.data.frame(c(ninos_sipi))
+  names(ninos_conteo) <- c("ninos_ex")
+  ninos_conteo$sipi <- row.names(ninos_conteo)
+  ninos1 <- merge(ninos1, ninos_conteo, 
+                by.x = "sipi", by.y = "sipi", all.x = TRUE, all.y = TRUE) # carga del dato de cantidad de niños por centro en la base de niños
+  ninos1 < -ninos1[order(ninos1$sipi, ninos1$dist_exist),] # se ordena la base por centro de pertenencia y por distancia al mismo
   remove(ninos_conteo)
   # CÁLCULO DE NIÑOS CUBIERTOS  
-  lista_sipi = as.data.frame(sort(unique(ninos1$sipi))) # lista de los centros que tienen niños asignados
-  names(lista_sipi)<-c("sipi")
-  lista_sipi$nsipi<-row.names(lista_sipi)
-  ninos1<-merge(ninos1,lista_sipi,by="sipi")
-  lista_1 = vector("list", nrow(lista_sipi))
+  lista_sipi <- as.data.frame(sort(unique(ninos1$sipi))) # lista de los centros que tienen niños asignados
+  names(lista_sipi) <- c("sipi")
+  lista_sipi$nsipi <- row.names(lista_sipi)
+  ninos1 <- merge(ninos1,lista_sipi,by="sipi")
+  lista_1 <- vector("list", nrow(lista_sipi))
   for (i in 1:nrow(lista_sipi)) {
-    lista_1[[i]]<-rank(subset(ninos1,ninos1$nsipi==i)[,"dist_exist"],ties.method="random")
+    lista_1[[i]] <- rank(subset(ninos1,ninos1$nsipi == i)[,"dist_exist"],ties.method = "random")
   } # crea una lista de rangos (por distancia) para cada niño dentro de su centro de pertenencia 
-  ninos1$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
+  ninos1$orden_dist <- unlist(lista_1) # asigna el rango a la base de niños
   remove(lista_1)
-  ninos1$a_reasig1<-ifelse(ninos1$en1000_exist==1,
-                           ifelse(ninos1$orden_dist<=ninos1$mat1a2,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+  ninos1$a_reasig1 <- ifelse(ninos1$en1000_exist == 1,
+                           ifelse(ninos1$orden_dist <= ninos1$mat1a2,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
   ## CÁLCULO DE CUPOS UTILIZADOS 
-  cubiertos<-subset(ninos1, ninos1$a_reasig1==0, c(x.x,y.x,afam,sipi),drop=TRUE)
-  cubiertos<-droplevels(cubiertos)
-  cubiertos$ronda<-as.factor(j) # indica la ronda en la que se asigno al centro correspondiente
-  cubiertos$uno<-1
-  centros1<-as.data.frame(tapply(X=cubiertos$uno,INDEX=list(cubiertos$sipi), FUN=sum))
-  names(centros1)<-"cupos"
-  centros1$sipi<-row.names(centros1)
-  cupos_centros[[j]]<-centros1 #CUPOS DE CADA CENTRO CUBIERTOS EN CADA PASO
-  centros1<-merge(centros,centros1,by="sipi",all.x=TRUE)
-  centros1$cupos<-ifelse(is.na(centros1$cupos),0,centros1$cupos)
-  centros1$mat1a2<-centros1$mat1a2-centros1$cupos #esto corresponde al saldo no cubierto
-  centros1<-subset(centros1,centros1$mat1a2>0,drop=TRUE) # se continua con los centros que aún tienen saldo
-  centros<-subset(centros1,select=c(x,y,sipi,mat1a2),drop=TRUE) 
-  centros<-droplevels(centros)
+  cubiertos <- subset(ninos1, ninos1$a_reasig1 == 0, c(x.x,y.x,afam,sipi),drop = TRUE)
+  cubiertos <- droplevels(cubiertos)
+  cubiertos$ronda <- as.factor(j) # indica la ronda en la que se asigno al centro correspondiente
+  cubiertos$uno <- 1
+  centros1 <- as.data.frame(tapply(X = cubiertos$uno,INDEX = list(cubiertos$sipi), FUN = sum))
+  names(centros1) <- "cupos"
+  centros1$sipi <- row.names(centros1)
+  cupos_centros[[j]] <- centros1 #CUPOS DE CADA CENTRO CUBIERTOS EN CADA PASO
+  centros1 <- merge(centros,centros1,by = "sipi",all.x = TRUE)
+  centros1$cupos <- ifelse(is.na(centros1$cupos),0,centros1$cupos)
+  centros1$mat1a2 <- centros1$mat1a2 - centros1$cupos #esto corresponde al saldo no cubierto
+  centros1 <- subset(centros1,centros1$mat1a2>0,drop = TRUE) # se continua con los centros que aún tienen saldo
+  centros <- subset(centros1,select = c(x,y,sipi,mat1a2),drop = TRUE) 
+  centros <- droplevels(centros)
   remove(centros1)
   ## NIÑOS NO CUBIERTOS
-  ninos1$x<-ninos1$x.x
-  ninos1$y<-ninos1$y.x
-  ninos1<-subset(ninos1,ninos1$a_reasig1==1,select=c(x,y,afam),drop=TRUE)
+  ninos1$x <- ninos1$x.x
+  ninos1$y <- ninos1$y.x
+  ninos1 <- subset(ninos1,ninos1$a_reasig1 == 1,select = c(x,y,afam),drop = TRUE)
   ## LISTA DE NIÑOS YA CUBIERTOS, UN OBJETO DE LA LISTA POR CADA PASO 
-  asignados[[j]]<-cubiertos
+  asignados[[j]] <- cubiertos
   remove(cubiertos)
-  j<-j+1 #cuenta la iteración
+  j <- j+1 #cuenta la iteración
 }
 cupos_perdidos<-centros
-no_cubiertos<-ninos1
+no_cubiertos <- ninos1
 
 # Desenlistado de los menores cubiertos
-asignados_existentes<-as.data.frame(NULL)
+asignados_existentes <- as.data.frame(NULL)
 for (i in 1:length(asignados)) {
-  asignados_existentes<-rbind(asignados_existentes,as.data.frame(asignados[[i]]))
+  asignados_existentes <- rbind(asignados_existentes,as.data.frame(asignados[[i]]))
 }
-asignados_existentes<-subset(asignados_existentes,select=c(x.x,y.x,afam,sipi,ronda))
+asignados_existentes <- subset(asignados_existentes,select = c(x.x,y.x,afam,sipi,ronda))
 
 # Desenlistado de los Centros
-cupos_cubiertos1<-as.data.frame(NULL)
+cupos_cubiertos1 <- as.data.frame(NULL)
 for (i in 1:length(cupos_centros)) {
-  cupos_cubiertos1<-rbind(cupos_cubiertos1,as.data.frame(cupos_centros[[i]]))
+  cupos_cubiertos1 <- rbind(cupos_cubiertos1,as.data.frame(cupos_centros[[i]]))
 }
-cupos_cubiertos<-as.data.frame(tapply(X=cupos_cubiertos1$cupos,INDEX=list(cupos_cubiertos1$sipi), FUN=sum))
-names(cupos_cubiertos)<-"cupos"
-cupos_cubiertos$sipi<-row.names(cupos_cubiertos)
+cupos_cubiertos <- as.data.frame(tapply(X = cupos_cubiertos1$cupos,INDEX = list(cupos_cubiertos1$sipi), FUN = sum))
+names(cupos_cubiertos) <- "cupos"
+cupos_cubiertos$sipi <- row.names(cupos_cubiertos)
 
 # Limpiar el ambiente
 remove(i,j,n,m,a,b,d,lista_sipi,centros,centros_s,VP_centros1,
@@ -134,58 +135,98 @@ remove(i,j,n,m,a,b,d,lista_sipi,centros,centros_s,VP_centros1,
 ##### GENERACIÓN DE LOS NUEVOS CENTROS #####
 
 #parámetros de la iteración
-j<-1 #número de iteración
-g1<-100 #tamaño de los grupos a crear en primera instancia
-g2<-50 #tamaño de los grupos a crear en segunda instancia
-d1<-1000 #primer umbral de distancia
-d2<-5000 #segundo umbral de distancia
-m<-9 #Número total de iteraciones
-l<-8 #umbral (en interaciones) para el cambio de distancia
-o<-7 #umbral (en interaciones) para el cambio de tamaño de grupos
+j <- 1 #número de iteración
+g1 <- 100 #tamaño de los grupos a crear en primera instancia
+g2 <- 50 #tamaño de los grupos a crear en segunda instancia
+d1 <- 1000 #primer umbral de distancia
+d2 <- 5000 #segundo umbral de distancia
+m <- 9 #Número total de iteraciones
+l <- 8 #umbral (en interaciones) para el cambio de distancia
+o <- 7 #umbral (en interaciones) para el cambio de tamaño de grupos
+n <- 1
 ninos<-no_cubiertos #niños no cubiertos en la asignación a los centros existentes
 # ninos$cluster<-as.factor(1) #crea una variable para la identidad del cluster
 clusterizados<-as.list(NA) #lista para extraer los niños que se van asignando en cada corrida
 
 # ITERACIONES
-while(j<=m){
- distancia<-ifelse(j<=6,d1,ifelse(j<=l,d2,1/0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
- tam<-ifelse(j<=5,g1,ifelse(j<=o,g2,1/0)) #el cupo por grupo a crear es 100 en las primeras 5 iteraciones, 50 para la 6 y 7 y la 8 y 9 no tienen límite de cupo
- k<-ifelse(is.infinite(tam),g2,ceiling(nrow(ninos)/tam))
- ninos$cluster<-as.factor(cclust(ninos[,1:2],k)@cluster)
- medianax<-as.data.frame(tapply(ninos$x,ninos$cluster,FUN=median)) # coordenada x del centro medio del cluster
- names(medianax)<-c("medianax")
- medianay<-as.data.frame(tapply(ninos$y,ninos$cluster,FUN=median)) # coordenada y del centro medio del cluster
- names(medianay)<-c("medianay")
- ninos<-merge(ninos,medianax,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
- ninos<-merge(ninos,medianay,by.x="cluster",by.y="row.names") #se agregan las coordenadas de los centros medianos
- ninos$dist<-sqrt((ninos$x-ninos$medianax)^2+(ninos$y-ninos$medianay)^2) #distancia al centro mediano
- lista_cluster<-as.data.frame(sort(unique(ninos$cluster))) # lista de los centros que tienen niños asignados
- names(lista_cluster)<-c("cluster")
- lista_cluster$cluster<-row.names(lista_cluster)
- ninos<-merge(ninos,lista_cluster,by="cluster")
- lista_1<-vector("list", nrow(lista_cluster))             
- for (i in 1:nrow(lista_cluster)) {
-     lista_1[[i]]<-rank(subset(ninos,ninos$cluster==i)[,"dist"],ties.method="random")
+while(j <= m | n >=  1) {
+ distancia <- ifelse(j <= 6,d1,ifelse(j <= l,d2,1 / 0)) #la distancia vale d1 para las primeras iteraciones, d2 para la 7 y 8 y no tiene límite para la novena
+ tam <- ifelse(j <= 5,g1,ifelse(j <= o,g2,1 / 0)) #el cupo por grupo a crear es 100 en las primeras 5 iteraciones, 50 para la 6 y 7 y la 8 y 9 no tienen límite de cupo
+ k <- ifelse(is.infinite(tam),g2,ceiling(nrow(ninos) / tam))
+ ninos$cluster <- as.factor(cclust(ninos[,1:2],k)@cluster)
+ medianax <- as.data.frame(tapply(ninos$x,ninos$cluster,FUN = median)) # coordenada x del centro medio del cluster
+ names(medianax) <- c("medianax")
+ medianay <- as.data.frame(tapply(ninos$y,ninos$cluster,FUN = median)) # coordenada y del centro medio del cluster
+ names(medianay) <- c("medianay")
+ ninos <- merge(ninos,medianax,by.x = "cluster",by.y = "row.names") #se agregan las coordenadas de los centros medianos
+ ninos <- merge(ninos,medianay,by.x = "cluster",by.y = "row.names") #se agregan las coordenadas de los centros medianos
+ ninos$dist <- sqrt((ninos$x - ninos$medianax) ^ 2 + (ninos$y - ninos$medianay) ^ 2) #distancia al centro mediano
+ lista_cluster <- as.data.frame(sort(unique(ninos$cluster))) # lista de los centros que tienen niños asignados
+ names(lista_cluster) <- c("cluster")
+ lista_cluster$cluster <- row.names(lista_cluster)
+ ninos <- merge(ninos,lista_cluster,by = "cluster")
+ lista_1 <- vector("list", nrow(lista_cluster))             
+for (i in 1:nrow(lista_cluster)) {
+     lista_1[[i]] <- rank(subset(ninos,ninos$cluster == i)[,"dist"],ties.method = "random")
  } # crea una lista de rangos (por distancia) para cada niño dentro del cluster de pertenencia 
- ninos$orden_dist<-unlist(lista_1) # asigna el rango a la base de niños
+ orden_dist <- as.data.frame(NULL)
+ for (i in 1:length(lista_1)) {
+         orden_dist <- rbind(orden_dist,as.data.frame(lista_1[[i]]))
+ }
+ colnames(orden_dist) <- "orden_dist"
+ ninos <- cbind(ninos[order(ninos$cluster,ninos$dist),],orden_dist) # asigna el rango a la base de niños
  remove(i,lista_1)
- ninos$a_reasig<-ifelse(ninos$dist<=distancia,
-                        ifelse(ninos$orden_dist<=tam,0,1),1) # aquellos cuyo rango es mayor que la cantidad de cupos disponibles debe ser reasignado en otro paso
- clusters<-subset(ninos,ninos$a_reasig==0)
- droplevels(clusters$cluster) 
- clusters$ronda<-as.factor(j)
- clusterizados[[j]]<-clusters
+ max_n_cl <- as.data.frame(tapply(ninos$orden_dist[ninos$dist <= distancia], ninos$cluster[ninos$dist <= distancia] ,max))
+ max_n_cl$cluster <- as.factor(row.names(max_n_cl))
+ names(max_n_cl) <- c("max_n_cl","cluster")
+ max_n_cl$max_n_cl <- ifelse(is.na(max_n_cl$max_n_cl),1,max_n_cl$max_n_cl)
+ ninos <- merge(ninos,max_n_cl,by = "cluster" )
+ ninos$tam <- tam
+ ninos$a_reasig <- ifelse(ninos$tam %in% c(g1, g2),ifelse(ninos$max_n_cl >= tam & ninos$orden_dist <= tam,0,1),0)
+ # aquellos cuyo rango es mayor que la cantidad de cupoos disponibles debe ser reasignado en otro paso
+ clusters <- subset(ninos,ninos$a_reasig == 0)
+ levels(clusters$cluster) <- droplevels(clusters$cluster)
+ clusters$ronda <- as.factor(j) # indica la ronda en la que se asigno al centro correspondiente
+ clusterizados[[j]] <- clusters
  remove(clusters)            
- ninos<-subset(ninos,ninos$a_reasig==1,select=c(x,y,afam))
- j<-j+1
+ ninos <- subset(ninos,ninos$a_reasig == 1,select = c(x,y,afam))
+ n <- length(ninos$x)
+ j <- j + 1
 }
 
-# Desenlistar los clusters
-asignados_clusters<-as.data.frame(NULL)
+#Desenlistar los clusters
+asignados_clusters <- as.data.frame(NULL)
 for (i in 1:length(clusterizados)) {
-  asignados_clusters<-rbind(asignados_clusters,as.data.frame(clusterizados[[i]]))
+  asignados_clusters <- rbind(asignados_clusters,as.data.frame(clusterizados[[i]]))
 }
-asignados_clusters<-subset(asignados_clusters,select=c(x,y,afam,medianax,medianay,dist,ronda))
+asignados_clusters$id <- paste(asignados_clusters$ronda,asignados_clusters$medianax,asignados_clusters$medianay, sep = "_")
+asignados_clusters$p_afam <- 0
+for (i in unique(asignados_clusters$id)) {
+      asignados_clusters[asignados_clusters$id == i,]$p_afam <- 
+              round(sum(asignados_clusters[asignados_clusters$id == i,]$afam) / 
+                            nrow(asignados_clusters[asignados_clusters$id == i,]),2)
+}
+centros_clusters <- subset(asignados_clusters,duplicated(asignados_clusters$id) == F,
+                           select = c(id,x,y,p_afam,medianax,medianay,dist,ronda))
+asignados_clusters <- subset(asignados_clusters,select = c(id,x,y,afam,medianax,medianay,dist,ronda))
+#limpiar el ambiente
+remove(j,g1,g2,d1,d2,medianax,medianay,lista_cluster,orden_dist,max_n_cl)
 
-# Limpiar el ambiente
-remove(j,g1,g2,d1,d2,medianax,medianay,lista_cluster)
+##### SAVE ######
+centros_clusters_s <- SpatialPointsDataFrame(SpatialPoints(centros_clusters[,2:3],CRS("+init=epsg:32721")), 
+                                               centros_clusters, match.ID = TRUE)
+writeOGR(centros_clusters_s, dsn = '/resultados', 
+         layer = 'centros_proyectados', driver = 'ESRI Shapefile', overwrite = TRUE)
+asignados_clusters_s <- SpatialPointsDataFrame(SpatialPoints(asignados_clusters[,2:3],CRS("+init=epsg:32721")),
+                                              asignados_clusters, match.ID = TRUE)
+writeOGR(asignados_clusters_s, dsn = '/resultados',
+      layer = 'asignados_clusters', driver = 'ESRI Shapefile', overwrite = TRUE)
+cupos_perdidos_0a2_npap <- cupos_perdidos
+no_cubiertos_0a2_npap <- no_cubiertos
+asignados_existentes_0a2_npap <- asignados_existentes
+cupos_cubiertos_0a2_npap <- cupos_cubiertos
+asignados_clusters_0a2_npap <- asignados_clusters
+centros_clusters_0a2_npap <- centros_clusters 
+save(ninos,oferta,no_cubiertos,asignados_existentes,cupos_cubiertos,asignados_clusters,centros_clusters,
+     file = "/resultados/oferta_demanda.Rdata")
+rm(cupos_perdidos,no_cubiertos,asignados_existentes,cupos_cubiertos,asignados_clusters,centros_clusters)
